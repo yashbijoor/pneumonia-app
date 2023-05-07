@@ -1,0 +1,104 @@
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@700&display=swap");
+
+* {
+  margin: 0;
+  padding: 0;
+  font-family: "Montserrat", sans-serif;
+}
+
+body {
+  background: url("../public/background-img3.jpg");
+  background-size: cover;
+  background-repeat: no-repeat;
+  /* background-color: #61dafb; */
+}
+
+.wrapper {
+  box-sizing: border-box;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* background-image: url(./bgimg.png);
+  background-size: 100%; */
+}
+
+.button {
+  position: fixed;
+  top: 60%;
+  left: 40%;
+}
+
+button {
+  border: none;
+  border-radius: 5px;
+  color: white;
+  padding: 15px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+}
+
+.wrapper {
+  display: flex;
+}
+
+.static-txt {
+  color: #000;
+  font-size: 45px;
+  font-weight: 400;
+}
+
+button:hover {
+  background-color: aqua;
+}
+
+.wrapper .dynamic-txt {
+  margin-left: 15px;
+  line-height: 60px;
+  height: 60px;
+  overflow: hidden;
+}
+
+.dynamic-txt li {
+  list-style: none;
+  color: darkblue;
+  font-size: 45px;
+  font-weight: 500;
+  top: 0;
+  position: relative;
+  animation: slide 9s steps(3) infinite;
+}
+
+@keyframes slide {
+  100% {
+    top: -185px;
+  }
+}
+
+.dynamic-txt li {
+  position: relative;
+}
+
+.dynamic-txt li::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: #f7fcff;
+  border-left: 2px solid darkblue;
+  animation: typing 3s steps(12) infinite;
+}
+
+@keyframes typing {
+  40%,
+  60% {
+    left: calc(100% + 15px);
+  }
+
+  100% {
+    left: 0;
+  }
+}
