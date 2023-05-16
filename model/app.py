@@ -8,6 +8,7 @@ import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+from skimage.io import imread
 from skimage.segmentation import mark_boundaries
 from keras.models import load_model
 import cv2
@@ -17,6 +18,7 @@ from keras import layers, models
 from keras.utils import load_img,img_to_array,array_to_img
 from keras.layers import Input, Conv2D, MaxPooling2D, Flatten, Dense, Dropout
 from keras.applications import ResNet50
+from keras.applications.mobilenet import preprocess_input
 from keras.models import Model
 import efficientnet.tfkeras as efn
 import keras.backend as K
@@ -27,10 +29,6 @@ import json
 app = Flask(__name__)
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
-
-@app.route("/home", methods=['POST'])
-def home():
-    return "home"
 
 @app.route('/predictGradcam', methods=['POST'])
 # @cross_origin()
@@ -143,6 +141,7 @@ def predictGradcam():
     img = cv2.imread(img_path)
     img = cv2.resize(img, (224,224), interpolation=cv2.INTER_NEAREST)
     img = np.expand_dims(img,axis=0)
+    x_img = preprocess_input(img)
 
     heatmap, top_index = make_gradcam_heatmap(img, model, last_conv_layer_name, classifier_layer_names)
 
@@ -152,21 +151,29 @@ def predictGradcam():
 
     model2 = load_model("grad_updated.h5")
 
-    image = cv2.imread(img_path)
-    resized_img = cv2.resize(image, (224, 224))
+    img = cv2.imread(img_path)
+    resized_img = cv2.resize(img, (224, 224))
     np_img = np.array(resized_img)
     np_img = np_img/255
     img_arr = np.array([np_img])
 
-    for index, resized_img in enumerate(img_arr):
-        explainer = lime_image.LimeImageExplainer()
-        explanation = explainer.explain_instance(resized_img.astype('double'), model2.predict, top_labels=5, hide_color=0, num_samples=1000)
-        temp, mask = explanation.get_image_and_mask(explanation.top_labels[0], positive_only=False, num_features=10, hide_rest=False)
-        plt.imshow(mark_boundaries(temp / 2 + 0.5, mask))
-        plt.axis('off')
-        plt.savefig('../app/src/Images/result-lime.png', bbox_inches='tight')
+    # for index, resized_img in enumerate(img_arr):
+    #     explainer = lime_image.LimeImageExplainer()
+    #     explanation = explainer.explain_instance(resized_img.astype('double'), model2.predict, top_labels=5, hide_color=0, num_samples=1000)
+    #     temp, mask = explanation.get_image_and_mask(explanation.top_labels[0], positive_only=False, num_features=10, hide_rest=False)
+    #     plt.imshow(mark_boundaries(temp / 2 + 0.5, mask))
+    #     plt.axis('off')
+    #     plt.savefig('../app/src/Images/result-lime.png', bbox_inches='tight')
 
-    pred = model2.predict(img_arr)
+    explainer = lime_image.LimeImageExplainer()
+    explanation = explainer.explain_instance(x_img[0].astype('double'), model2.predict, top_labels=2, hide_color=0, num_samples=1000, distance_metric='cosine')
+    temp, mask = explanation.get_image_and_mask(label=1, positive_only=False,  num_features=15, hide_rest=False, min_weight=0.00000004)
+    tempp = np.interp(temp, (temp.min(), temp.max()), (0, +1))
+    plt.imshow(mark_boundaries(tempp, mask))
+    plt.axis('off')
+    plt.savefig('../app/src/Images/result-lime.png', bbox_inches='tight', pad_inches=0.0)
+
+    pred = model2.predict(x_img)
 
     if pred[0,0] >= 0.5:
       response =  'Our network is {:.2%} sure this is NORMAL'.format(pred[0][0])
