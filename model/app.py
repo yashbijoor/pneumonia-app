@@ -44,89 +44,17 @@ def predictGradcam():
     img_file = open('image.jpg', 'wb')
     img_file.write(decoded_data)
     img_file.close()
-
-    img_file2 = open('../app/src/Images/image.jpg', 'wb')
-    img_file2.write(decoded_data)
-    img_file2.close()
     
     img_path = "image.jpg"
     
-    def make_gradcam_heatmap(img_array, model, last_conv_layer_name, classifier_layer_names):
-        # First, we create a model that maps the input image to the activations
-        # of the last conv layer
-        last_conv_layer = model.get_layer(last_conv_layer_name)
-        last_conv_layer_model = keras.Model(model.inputs, last_conv_layer.output)
-
-        # Second, we create a model that maps the activations of the last conv
-        # layer to the final class predictions
-        classifier_input = keras.Input(shape=last_conv_layer.output.shape[1:])
-        x = classifier_input
-        for layer_name in classifier_layer_names:
-            x = model.get_layer(layer_name)(x)
-        classifier_model = keras.Model(classifier_input, x)
-
-        # Then, we compute the gradient of the top predicted class for our input image
-        # with respect to the activations of the last conv layer
-        with tf.GradientTape() as tape:
-            # Compute activations of the last conv layer and make the tape watch it
-            last_conv_layer_output = last_conv_layer_model(img_array)
-            tape.watch(last_conv_layer_output)
-            # Compute class predictions
-            preds = classifier_model(last_conv_layer_output)
-            top_pred_index = tf.argmax(preds[0])
-            top_class_channel = preds[:, top_pred_index]
-
-        # This is the gradient of the top predicted class with regard to
-        # the output feature map of the last conv layer
-        grads = tape.gradient(top_class_channel, last_conv_layer_output)
-
-        # This is a vector where each entry is the mean intensity of the gradient
-        # over a specific feature map channel
-        pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))
-
-        # We multiply each channel in the feature map array
-        # by "how important this channel is" with regard to the top predicted class
-        last_conv_layer_output = last_conv_layer_output.numpy()[0]
-        pooled_grads = pooled_grads.numpy()
-        for i in range(pooled_grads.shape[-1]):
-            last_conv_layer_output[:, :, i] *= pooled_grads[i]
-
-        # The channel-wise mean of the resulting feature map
-        # is our heatmap of class activation
-        heatmap = np.mean(last_conv_layer_output, axis=-1)
-
-        # For visualization purpose, we will also normalize the heatmap between 0 & 1
-        heatmap = np.maximum(heatmap, 0) / np.max(heatmap)
-        return heatmap, top_pred_index.numpy()
     
-    def superimposed_img(image, heatmap):
-        # We rescale heatmap to a range 0-255
-        heatmap = np.uint8(255 * heatmap)
+    # model = load_model("grad_cam_final.h5")
+    model = load_model("Final2.h5")
+    model2 = load_model("grad_updated.h5")
 
-        # We use jet colormap to colorize heatmap
-        jet = cm.get_cmap("jet")
 
-        # We use RGB values of the colormap
-        jet_colors = jet(np.arange(256))[:, :3]
-        jet_heatmap = jet_colors[heatmap]
-
-        # We create an image with RGB colorized heatmap
-        jet_heatmap = keras.preprocessing.image.array_to_img(jet_heatmap)
-        jet_heatmap = jet_heatmap.resize((224, 224))
-        jet_heatmap = keras.preprocessing.image.img_to_array(jet_heatmap)
-
-        # Superimpose the heatmap on original image
-        superimposed_img = jet_heatmap * 0.4 + image
-        superimposed_img = keras.preprocessing.image.array_to_img(superimposed_img)
-        return superimposed_img
-    
-    def categorical_smooth_loss(y_true, y_pred, label_smoothing=0.1):
-        loss = tf.keras.losses.categorical_crossentropy(y_true, y_pred, label_smoothing=label_smoothing)
-        return loss
-    
-    model = load_model("grad_cam_model.h5", custom_objects={'categorical_smooth_loss': categorical_smooth_loss})
-
-    last_conv_layer_name = "conv5_block32_concat"
+    trained_conv_layer = model.get_layer('conv5_block3_out')
+    last_conv_layer_name='conv5_block3_out'
     classifier_layer_names = [
         "bn",
         "relu",
@@ -136,26 +64,66 @@ def predictGradcam():
         "dropout_head",
         "predictions_head"
     ]
-
-    # test image
+    # Load and preprocess an image for GradCAM
     img = cv2.imread(img_path)
-    img = cv2.resize(img, (224,224), interpolation=cv2.INTER_NEAREST)
-    img = np.expand_dims(img,axis=0)
-    x_img = preprocess_input(img)
+    img = cv2.resize(img, (224, 224))
+    cv2.imwrite("../app/src/Images/image.jpg", img)
+    x = np.expand_dims(img, axis=0)
+    x = preprocess_input(x)
+    img_size = (224, 224)
 
-    heatmap, top_index = make_gradcam_heatmap(img, model, last_conv_layer_name, classifier_layer_names)
+    # Convert the input image to a NumPy array
+    img_array = np.array(img)
 
-    s_img = superimposed_img(img[0], heatmap)
+    # Convert the input image to RGB format
+    img_rgb = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB)
 
-    s_img.save("../app/src/Images/xray_cam.jpg")
+    # Predict the class probabilities
+    preds = model.predict(x)
+    class_index = np.argmax(preds[0])
 
-    model2 = load_model("grad_updated.h5")
+    # Obtain the last convolutional layer
+    last_conv_layer = model.get_layer('conv5_block3_out')
 
-    img = cv2.imread(img_path)
-    resized_img = cv2.resize(img, (224, 224))
-    np_img = np.array(resized_img)
-    np_img = np_img/255
-    img_arr = np.array([np_img])
+    # Compute the gradient of the class output value with respect to the feature map of the last convolutional layer
+    grad_model = tf.keras.models.Model([model.inputs], [model.output, last_conv_layer.output])
+    with tf.GradientTape() as tape:
+        preds, conv_outputs = grad_model(x)
+        class_idx = tf.argmax(preds[0])
+        loss = preds[:, class_idx]
+    grads = tape.gradient(loss, conv_outputs)[0]
+
+    # Compute the channel-wise mean of the gradients
+    weights = tf.reduce_mean(grads, axis=(0, 1))
+
+    # Multiply each channel in the feature map array by "how important this channel is" with regard to the class
+    cam = np.ones(conv_outputs.shape[1:3], dtype=np.float32)
+    for i, w in enumerate(weights):
+        cam += w * conv_outputs[0, :, :, i]
+    # Normalize the heatmap between 0 and 255
+    heatmap = cam.numpy()
+    heatmap = cv2.resize(heatmap, (224,224))
+    heatmap = np.maximum(heatmap, 0)
+    heatmap = (heatmap - np.min(heatmap)) / (np.max(heatmap) - np.min(heatmap) + 1e-8)
+    heatmap = (heatmap * 255).astype(np.uint8)
+    # Apply a color map to the heatmap
+    jet = cm.get_cmap("jet")
+    heatmap = jet(heatmap)
+    heatmap = np.uint8(heatmap * 255)
+
+    # Convert the heatmap to RGB format
+    heatmap = cv2.cvtColor(heatmap, cv2.COLOR_RGBA2RGB)
+
+    # Resize the heatmap to be the same size as the original image
+    heatmap = cv2.resize(heatmap, (224,224))
+
+    # Combine the heatmap with the original image
+    superimposed_img = cv2.addWeighted(np.array(img), 0.5, heatmap, 0.5, 0)
+
+    # Show the result
+    plt.imshow(superimposed_img)
+    plt.axis('off')
+    plt.savefig('../app/src/Images/xray_cam.jpg', bbox_inches='tight', pad_inches=0.0)
 
     # for index, resized_img in enumerate(img_arr):
     #     explainer = lime_image.LimeImageExplainer()
@@ -166,54 +134,20 @@ def predictGradcam():
     #     plt.savefig('../app/src/Images/result-lime.png', bbox_inches='tight')
 
     explainer = lime_image.LimeImageExplainer()
-    explanation = explainer.explain_instance(x_img[0].astype('double'), model2.predict, top_labels=2, hide_color=0, num_samples=1000, distance_metric='cosine')
+    explanation = explainer.explain_instance(x[0].astype('double'), model2.predict, top_labels=2, hide_color=0, num_samples=1000, distance_metric='cosine')
     temp, mask = explanation.get_image_and_mask(label=1, positive_only=False,  num_features=15, hide_rest=False, min_weight=0.00000004)
     tempp = np.interp(temp, (temp.min(), temp.max()), (0, +1))
     plt.imshow(mark_boundaries(tempp, mask))
     plt.axis('off')
     plt.savefig('../app/src/Images/result-lime.png', bbox_inches='tight', pad_inches=0.0)
 
-    pred = model2.predict(x_img)
+    pred = model2.predict(x)
 
-    if pred[0,0] >= 0.5:
-      response =  'Our network is {:.2%} sure this is NORMAL'.format(pred[0][0])
+    if preds[0,0] >= 0.5:
+      response =  'Our network is {:.2%} sure this is NORMAL'.format(preds[0][0])
       return jsonify({"success": response})
     else: 
-      response = 'Our network is {:.2%} sure this is PNEUMONIA'.format(1-pred[0][0])
+      response = 'Our network is {:.2%} sure this is PNEUMONIA'.format(1-preds[0][0])
       return jsonify({"success": response})
 
     # return ({"Success": "Successfully executed"})
-
-
-@app.route('/predictLime', methods=['POST'])
-def predictLime():
-
-    model = load_model("grad_updated.h5")
-
-    img = cv2.imread("image.jpg")
-    img = cv2.resize(img, (224, 224))
-    np_img = np.array(img)
-
-    np_img = np_img/255
-    image_array = np.array([np_img])
-
-    for index, img in enumerate(image_array):
-        explainer = lime_image.LimeImageExplainer()
-        explanation = explainer.explain_instance(img.astype('double'), model.predict, top_labels=5, hide_color=0, num_samples=1000)
-        temp, mask = explanation.get_image_and_mask(explanation.top_labels[0], positive_only=False, num_features=10, hide_rest=False)
-        plt.imshow(mark_boundaries(temp / 2 + 0.5, mask))
-        plt.axis('off')
-        plt.savefig('../app/src/Images/result-lime.png', bbox_inches='tight')
-
-    prediction = model.predict(image_array)
-
-    class_x=np.argmax(prediction,axis=1)
-
-    if class_x[0] == 1:
-        predicted_class = "Pneumonia"
-    else:
-        predicted_class = "Normal"
-    
-    print(predicted_class)
-    
-    return ({"Output": predicted_class})

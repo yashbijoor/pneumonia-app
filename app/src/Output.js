@@ -14,15 +14,27 @@ function Output() {
       <div className="output-wrapper">
         <div>
           <p>Original Image:</p>
-          <img className="output-img" src={originalImage}></img>
+          <img
+            className="output-img"
+            src={originalImage}
+            alt="Uploaded xray"
+          ></img>
         </div>
         <div>
           <p>Grad-CAM:</p>
-          <img className="output-img" src={gradcamImage}></img>
+          <img
+            className="output-img"
+            src={gradcamImage}
+            alt="GradCAM heatmap"
+          ></img>
         </div>
         <div>
           <p>LIME:</p>
-          <img className="output-img" src={limeImage}></img>
+          <img
+            className="output-img"
+            src={limeImage}
+            alt="LIME generated"
+          ></img>
         </div>
       </div>
       <div>

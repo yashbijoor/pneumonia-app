@@ -8,7 +8,7 @@ function Home() {
       <div className="static-txt">Diagnose</div>
       <ul className="dynamic-txt">
         <li>Pneumonia</li>
-        <li>Covid - 19</li>
+        <li>Online</li>
         <li>it yourself</li>
       </ul>
       <div className="button">
