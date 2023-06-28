@@ -72,7 +72,7 @@ Run the react app
 
 [9] R. Winastwan, “Interpreting image classification model with lime,” Medium, [https://towardsdatascience.com/interpreting-image-classification-model-with-lime-1e7064a2f2e5](https://towardsdatascience.com/interpreting-image-classification-model-with-lime-1e7064a2f2e5)
 
-[10] F. López, “Shap: Shapley additive explanations,” Medium, [https://towardsdatascience.com/shap-shapley-additive-explanations-5a2a271ed9c3](https://towardsdatascience.com/shap-shapley-additive-explanations-5a2a271ed9c3) 
+[10] F. López, “Shap: Shapley additive explanations,” Medium, [https://towardsdatascience.com/shap-shapley-additive-explanations-5a2a271ed9c3](https://towardsdatascience.com/shap-shapley-additive-explanations-5a2a271ed9c3) (accessed May 19, 2023).
 
 [11] R. R. Selvaraju et al., “Grad-cam: Visual explanations from deep networks via gradient-based localization,” International Journal of Computer Vision, vol. 128, no. 2, pp. 336–359, 2019. doi:10.1007/s11263-019-01228-7 
 
